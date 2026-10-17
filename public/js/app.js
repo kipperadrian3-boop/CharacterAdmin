@@ -226,6 +226,15 @@ function startPolling(userId, username) {
             const res = await fetch(`${FIREBASE_URL}/loginRequests/${userId}.json`);
             const requestData = await res.json();
 
+            if (requestData && requestData.Status === 'Rejected') {
+                stopPolling();
+                statusContainer.classList.add('hidden');
+                showError('Login was rejected in-game.');
+                codeInput.disabled = false;
+                loginBtn.disabled = false;
+                return;
+            }
+
             if (requestData && requestData.Status === 'Verified') {
                 // SUCCESS! Verified via MeButton in Roblox!
                 stopPolling();
