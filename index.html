@@ -64,14 +64,104 @@
 
         <!-- Main Content Area -->
         <main class="content-container">
-            <div class="coming-soon-card">
-                <div class="coming-soon-badge">DASHBOARD</div>
-                <h2>Coming Soon</h2>
-                <p>You are successfully authenticated with your Roblox game account.</p>
-                <div class="coming-soon-divider"></div>
-                <p class="coming-soon-sub">More character tools and controls will be available here soon.</p>
+            <!-- 1. DASHBOARD VIEW -->
+            <div id="dashboardView" class="sub-view">
+                <div class="coming-soon-card">
+                    <div class="coming-soon-badge">DASHBOARD</div>
+                    <h2>Coming Soon</h2>
+                    <p>You are successfully authenticated with your Roblox game account.</p>
+                    <div class="coming-soon-divider"></div>
+                    <p class="coming-soon-sub">More character tools and controls will be available here soon.</p>
+                </div>
+            </div>
+
+            <!-- 2. UPGRADES VIEW -->
+            <div id="upgradesView" class="sub-view hidden">
+                <!-- Player Stats Bar -->
+                <div class="stats-overview-bar">
+                    <div class="stat-badge">
+                        <span class="stat-badge-label">MONEY</span>
+                        <span class="stat-badge-value" id="statMoneyVal">0</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge-label">SPEED</span>
+                        <span class="stat-badge-value" id="statSpeedVal">16</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-badge-label">DAMAGE</span>
+                        <span class="stat-badge-value" id="statDamageVal">1</span>
+                    </div>
+                </div>
+
+                <!-- Status Feedback Message -->
+                <div id="upgradeStatusMsg" class="upgrade-status-msg hidden"></div>
+
+                <!-- Upgrades List (Stacked vertically, generic & clean without emojis) -->
+                <div class="upgrades-list">
+                    <!-- +1 Speed -->
+                    <div class="upgrade-card" data-upgrade="Speed" data-amount="1">
+                        <div class="upgrade-card-left">
+                            <span class="upgrade-type-tag">SPEED</span>
+                            <h3 class="upgrade-title">+1 Speed</h3>
+                            <p class="upgrade-preview" id="previewSpeed1">16 → 17</p>
+                        </div>
+                        <div class="upgrade-card-right">
+                            <span class="upgrade-cost-tag" id="costSpeed1">10 Money</span>
+                            <button class="upgrade-buy-btn" id="buySpeed1Btn">Buy</button>
+                        </div>
+                    </div>
+
+                    <!-- +5 Speed -->
+                    <div class="upgrade-card" data-upgrade="Speed" data-amount="5">
+                        <div class="upgrade-card-left">
+                            <span class="upgrade-type-tag">SPEED</span>
+                            <h3 class="upgrade-title">+5 Speed</h3>
+                            <p class="upgrade-preview" id="previewSpeed5">16 → 21</p>
+                        </div>
+                        <div class="upgrade-card-right">
+                            <span class="upgrade-cost-tag" id="costSpeed5">50 Money</span>
+                            <button class="upgrade-buy-btn" id="buySpeed5Btn">Buy</button>
+                        </div>
+                    </div>
+
+                    <!-- +5 Damage -->
+                    <div class="upgrade-card" data-upgrade="Damage" data-amount="1">
+                        <div class="upgrade-card-left">
+                            <span class="upgrade-type-tag">DAMAGE</span>
+                            <h3 class="upgrade-title">+5 Damage</h3>
+                            <p class="upgrade-preview" id="previewDamage5">1 → 6</p>
+                        </div>
+                        <div class="upgrade-card-right">
+                            <span class="upgrade-cost-tag" id="costDamage5">100 Money</span>
+                            <button class="upgrade-buy-btn" id="buyDamage5Btn">Buy</button>
+                        </div>
+                    </div>
+
+                    <!-- +50 Damage -->
+                    <div class="upgrade-card" data-upgrade="Damage" data-amount="10">
+                        <div class="upgrade-card-left">
+                            <span class="upgrade-type-tag">DAMAGE</span>
+                            <h3 class="upgrade-title">+50 Damage</h3>
+                            <p class="upgrade-preview" id="previewDamage50">1 → 51</p>
+                        </div>
+                        <div class="upgrade-card-right">
+                            <span class="upgrade-cost-tag" id="costDamage50">1000 Money</span>
+                            <button class="upgrade-buy-btn" id="buyDamage50Btn">Buy</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
+
+        <!-- Bottom Navigation Bar (Build-Ur-Base-Web style) -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" id="navDashboardBtn">
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" id="navUpgradesBtn">
+                <span>Upgrades</span>
+            </button>
+        </nav>
     </div>
 
     <script src="js/app.js"></script>

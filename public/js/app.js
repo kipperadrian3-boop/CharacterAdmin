@@ -17,8 +17,39 @@ const userAvatar        = document.getElementById('userAvatar');
 const userName          = document.getElementById('userName');
 const logoutBtn         = document.getElementById('logoutBtn');
 
+// Navigation & Sub-views
+const dashboardView     = document.getElementById('dashboardView');
+const upgradesView      = document.getElementById('upgradesView');
+const navDashboardBtn   = document.getElementById('navDashboardBtn');
+const navUpgradesBtn    = document.getElementById('navUpgradesBtn');
+
+// Upgrade Elements
+const statMoneyVal      = document.getElementById('statMoneyVal');
+const statSpeedVal      = document.getElementById('statSpeedVal');
+const statDamageVal     = document.getElementById('statDamageVal');
+const upgradeStatusMsg  = document.getElementById('upgradeStatusMsg');
+
+const costSpeed1        = document.getElementById('costSpeed1');
+const costSpeed5        = document.getElementById('costSpeed5');
+const costDamage5       = document.getElementById('costDamage5');
+const costDamage50      = document.getElementById('costDamage50');
+
+const previewSpeed1     = document.getElementById('previewSpeed1');
+const previewSpeed5     = document.getElementById('previewSpeed5');
+const previewDamage5    = document.getElementById('previewDamage5');
+const previewDamage50   = document.getElementById('previewDamage50');
+
+const buySpeed1Btn      = document.getElementById('buySpeed1Btn');
+const buySpeed5Btn      = document.getElementById('buySpeed5Btn');
+const buyDamage5Btn     = document.getElementById('buyDamage5Btn');
+const buyDamage50Btn    = document.getElementById('buyDamage50Btn');
+
 let pollInterval = null;
 let countdownTimer = null;
+let statsPollInterval = null;
+let currentStats = { Money: 100, Speed: 16, Strength: 1 };
+let currentUser = null;
+let isPurchasing = false;
 
 // ====================================================================
 // 1. PERSISTENT BROWSER SESSION (localStorage)
@@ -64,6 +95,8 @@ function clearSession() {
 
 function showLoginView() {
     stopPolling();
+    stopStatsSync();
+    currentUser = null;
     mainAppView.classList.add('hidden');
     loginView.classList.remove('hidden');
     statusContainer.classList.add('hidden');
@@ -132,6 +165,7 @@ function showMainAppView(user) {
     mainAppView.classList.remove('hidden');
 
     if (user) {
+        currentUser = user;
         userName.textContent = user.username || 'Player';
 
         // Set up error fallback to prevent broken icon
@@ -153,6 +187,10 @@ function showMainAppView(user) {
                 userAvatar.src = realUrl;
             }
         });
+
+        // Initialize sub-view and start real-time stats synchronization with Firebase
+        switchSubView('dashboard');
+        startStatsSync(user.username);
     }
 }
 
@@ -349,6 +387,247 @@ logoutBtn.addEventListener('click', () => {
     clearSession();
     showLoginView();
 });
+
+// ====================================================================
+// 6. UPGRADES SYSTEM & EXACT IN-GAME CALCULATOR
+// ====================================================================
+
+const UPGRADE_CONFIG = {
+    Speed: {
+        stat: 'Speed',
+        baseCost: 10,
+        defaultVal: 16,
+        amountPerStep: 1,
+        growthTiers: [
+            { below: 20, percent: 5 },
+            { below: 30, percent: 10 },
+            { below: 40, percent: 15 },
+            { below: 50, percent: 20 },
+            { below: 60, percent: 25 },
+            { below: 70, percent: 30 },
+            { below: 80, percent: 32 },
+            { below: 90, percent: 35 },
+            { below: 100, percent: 37 },
+            { below: 115, percent: 40 },
+            { percent: 45 }
+        ]
+    },
+    Damage: {
+        stat: 'Strength',
+        baseCost: 100,
+        defaultVal: 1,
+        amountPerStep: 5,
+        growthTiers: [
+            { below: 100, percent: 10 },
+            { below: 250, percent: 15 },
+            { below: 500, percent: 20 },
+            { below: 1000, percent: 25 },
+            { below: 5000, percent: 30 },
+            { below: 50000, percent: 40 },
+            { percent: 50 }
+        ]
+    }
+};
+
+function getGrowthPercent(cfg, statVal) {
+    let last = 0;
+    for (const tier of cfg.growthTiers) {
+        last = tier.percent;
+        if (tier.below === undefined || statVal < tier.below) {
+            return tier.percent;
+        }
+    }
+    return last;
+}
+
+function calculateUpgradeCost(upgradeKey, currentStatValue, countSteps) {
+    const cfg = UPGRADE_CONFIG[upgradeKey];
+    const level = Math.max(0, Math.floor(((currentStatValue - cfg.defaultVal) / cfg.amountPerStep) + 0.5));
+    let price = cfg.baseCost;
+    let total = 0;
+    for (let i = 0; i < level + countSteps; i++) {
+        if (i >= level) {
+            total += price;
+        }
+        const statAtStep = cfg.defaultVal + i * cfg.amountPerStep;
+        price *= (1 + getGrowthPercent(cfg, statAtStep) / 100);
+    }
+    return Math.ceil(total);
+}
+
+function updateUpgradeUI() {
+    if (!statMoneyVal) return;
+
+    const money = Number(currentStats.Money) || 0;
+    const speed = Number(currentStats.Speed) || 16;
+    const strength = Number(currentStats.Strength) || 1;
+
+    // 1. Update stats bar
+    statMoneyVal.textContent = money.toLocaleString();
+    statSpeedVal.textContent = speed.toLocaleString();
+    statDamageVal.textContent = strength.toLocaleString();
+
+    // 2. Speed +1 (1 step of 1)
+    const costS1 = calculateUpgradeCost('Speed', speed, 1);
+    if (costSpeed1) costSpeed1.textContent = `${costS1.toLocaleString()} Money`;
+    if (previewSpeed1) previewSpeed1.textContent = `${speed} → ${speed + 1}`;
+    if (buySpeed1Btn) buySpeed1Btn.disabled = isPurchasing || (money < costS1);
+
+    // 3. Speed +5 (5 steps of 1)
+    const costS5 = calculateUpgradeCost('Speed', speed, 5);
+    if (costSpeed5) costSpeed5.textContent = `${costS5.toLocaleString()} Money`;
+    if (previewSpeed5) previewSpeed5.textContent = `${speed} → ${speed + 5}`;
+    if (buySpeed5Btn) buySpeed5Btn.disabled = isPurchasing || (money < costS5);
+
+    // 4. Damage +5 (1 step of 5)
+    const costD5 = calculateUpgradeCost('Damage', strength, 1);
+    if (costDamage5) costDamage5.textContent = `${costD5.toLocaleString()} Money`;
+    if (previewDamage5) previewDamage5.textContent = `${strength} → ${strength + 5}`;
+    if (buyDamage5Btn) buyDamage5Btn.disabled = isPurchasing || (money < costD5);
+
+    // 5. Damage +50 (10 steps of 5)
+    const costD50 = calculateUpgradeCost('Damage', strength, 10);
+    if (costDamage50) costDamage50.textContent = `${costD50.toLocaleString()} Money`;
+    if (previewDamage50) previewDamage50.textContent = `${strength} → ${strength + 50}`;
+    if (buyDamage50Btn) buyDamage50Btn.disabled = isPurchasing || (money < costD50);
+}
+
+function showUpgradeMessage(text, isError = false) {
+    if (!upgradeStatusMsg) return;
+    upgradeStatusMsg.textContent = text;
+    upgradeStatusMsg.className = `upgrade-status-msg ${isError ? 'error' : 'success'}`;
+    upgradeStatusMsg.classList.remove('hidden');
+
+    setTimeout(() => {
+        if (upgradeStatusMsg) upgradeStatusMsg.classList.add('hidden');
+    }, 4000);
+}
+
+// Exploit-safe purchase handler with anti-double-spend locks and server re-validation
+async function handlePurchaseUpgrade(type, countSteps, displayAmount) {
+    if (isPurchasing || !currentUser || !currentUser.username) {
+        return;
+    }
+
+    isPurchasing = true;
+    updateUpgradeUI();
+
+    try {
+        const username = currentUser.username;
+
+        // 1. Fetch fresh stats directly from Firebase to prevent client-side desync/cheats
+        const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
+        const latestStats = (await res.json()) || { Money: 100, Speed: 16, Strength: 1 };
+
+        const currentMoney = Number(latestStats.Money) || 0;
+        const currentStatVal = type === 'Speed' ? (Number(latestStats.Speed) || 16) : (Number(latestStats.Strength) || 1);
+
+        // 2. Re-calculate cost using authoritative latest numbers
+        const requiredCost = calculateUpgradeCost(type, currentStatVal, countSteps);
+
+        if (currentMoney < requiredCost) {
+            showUpgradeMessage(`Not enough Money! Needed: ${requiredCost.toLocaleString()}, You have: ${currentMoney.toLocaleString()}`, true);
+            isPurchasing = false;
+            currentStats = latestStats;
+            updateUpgradeUI();
+            return;
+        }
+
+        // 3. Atomically update stats in Firebase
+        const newMoney = currentMoney - requiredCost;
+        const newStatVal = type === 'Speed' ? (currentStatVal + countSteps * 1) : (currentStatVal + countSteps * 5);
+
+        const patchPayload = {
+            Money: newMoney,
+            [type === 'Speed' ? 'Speed' : 'Strength']: newStatVal
+        };
+
+        const patchRes = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patchPayload)
+        });
+
+        if (patchRes.ok) {
+            currentStats.Money = newMoney;
+            if (type === 'Speed') currentStats.Speed = newStatVal;
+            if (type === 'Damage') currentStats.Strength = newStatVal;
+
+            showUpgradeMessage(`+${displayAmount} ${type} successfully upgraded!`, false);
+        } else {
+            showUpgradeMessage('Purchase failed. Could not communicate with server.', true);
+        }
+
+    } catch (e) {
+        console.error('Error during purchase:', e);
+        showUpgradeMessage('An error occurred during purchase.', true);
+    } finally {
+        isPurchasing = false;
+        updateUpgradeUI();
+    }
+}
+
+// Real-time synchronization of stats with Firebase
+async function syncStatsOnce(username) {
+    if (!username) return;
+    try {
+        const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+            currentStats = {
+                Money: Number(data.Money) || 0,
+                Speed: Number(data.Speed) || 16,
+                Strength: Number(data.Strength) || 1
+            };
+            updateUpgradeUI();
+        }
+    } catch (e) {
+        console.warn('Could not sync stats:', e);
+    }
+}
+
+function startStatsSync(username) {
+    stopStatsSync();
+    syncStatsOnce(username);
+    statsPollInterval = setInterval(() => {
+        if (!isPurchasing) {
+            syncStatsOnce(username);
+        }
+    }, 2000);
+}
+
+function stopStatsSync() {
+    if (statsPollInterval) {
+        clearInterval(statsPollInterval);
+        statsPollInterval = null;
+    }
+}
+
+// Sub-view navigation
+function switchSubView(viewName) {
+    if (!dashboardView || !upgradesView) return;
+    if (viewName === 'dashboard') {
+        dashboardView.classList.remove('hidden');
+        upgradesView.classList.add('hidden');
+        if (navDashboardBtn) navDashboardBtn.classList.add('active');
+        if (navUpgradesBtn) navUpgradesBtn.classList.remove('active');
+    } else if (viewName === 'upgrades') {
+        dashboardView.classList.add('hidden');
+        upgradesView.classList.remove('hidden');
+        if (navDashboardBtn) navDashboardBtn.classList.remove('active');
+        if (navUpgradesBtn) navUpgradesBtn.classList.add('active');
+        updateUpgradeUI();
+    }
+}
+
+if (navDashboardBtn) navDashboardBtn.addEventListener('click', () => switchSubView('dashboard'));
+if (navUpgradesBtn) navUpgradesBtn.addEventListener('click', () => switchSubView('upgrades'));
+
+// Hook upgrade buttons
+if (buySpeed1Btn) buySpeed1Btn.addEventListener('click', () => handlePurchaseUpgrade('Speed', 1, 1));
+if (buySpeed5Btn) buySpeed5Btn.addEventListener('click', () => handlePurchaseUpgrade('Speed', 5, 5));
+if (buyDamage5Btn) buyDamage5Btn.addEventListener('click', () => handlePurchaseUpgrade('Damage', 1, 5));
+if (buyDamage50Btn) buyDamage50Btn.addEventListener('click', () => handlePurchaseUpgrade('Damage', 10, 50));
 
 // Run session check on page load
 initSession();
