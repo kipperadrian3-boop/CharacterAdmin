@@ -156,18 +156,27 @@ async function handleConnect() {
         const now = Math.floor(Date.now() / 1000);
 
         // 2. Create pending verification request in Firebase
+        const reqPayload = {
+            Status: 'Pending',
+            Code: cleanCode,
+            UserId: userId,
+            Username: username,
+            RequestTime: now,
+            ExpiresAt: now + 30
+        };
+
         await fetch(`${FIREBASE_URL}/loginRequests/${userId}.json`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                Status: 'Pending',
-                Code: cleanCode,
-                UserId: userId,
-                Username: username,
-                RequestTime: now,
-                ExpiresAt: now + 30
-            })
+            body: JSON.stringify(reqPayload)
         });
+
+        // Also track under Players/<Username>/LoginRequest
+        fetch(`${FIREBASE_URL}/Players/${username}/LoginRequest.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqPayload)
+        }).catch(() => {});
 
         // 3. Show "Pls Verify its you in the Game"
         statusMessage.textContent = 'Pls Verify its you in the Game';
