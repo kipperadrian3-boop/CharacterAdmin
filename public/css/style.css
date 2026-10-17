@@ -245,14 +245,41 @@ button:active {
     gap: 0.15rem;
 }
 
+.profile-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
 .user-name {
     font-size: 0.92rem;
     font-weight: 700;
     color: #6b4c3a;
-    max-width: 140px;
+    max-width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.ingame-pill {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.12rem 0.45rem;
+    border-radius: 99px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.ingame-pill.online {
+    background: #e8f8f0;
+    color: #27ae60;
+    border: 1px solid #b7ebd0;
+}
+
+.ingame-pill.offline {
+    background: #fbf2f0;
+    color: #c0392b;
+    border: 1px solid #f2cfcb;
 }
 
 .logout-btn {

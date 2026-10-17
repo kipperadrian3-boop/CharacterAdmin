@@ -15,7 +15,23 @@ const countdownProgress = document.getElementById('countdownProgress');
 const errorMessage      = document.getElementById('errorMessage');
 const userAvatar        = document.getElementById('userAvatar');
 const userName          = document.getElementById('userName');
+const userInGameStatus  = document.getElementById('userInGameStatus');
 const logoutBtn         = document.getElementById('logoutBtn');
+
+let isPlayerInGame = false;
+
+function updateInGameUI(inGame) {
+    isPlayerInGame = inGame === true;
+    if (userInGameStatus) {
+        if (isPlayerInGame) {
+            userInGameStatus.textContent = 'In Game';
+            userInGameStatus.className = 'ingame-pill online';
+        } else {
+            userInGameStatus.textContent = 'Offline';
+            userInGameStatus.className = 'ingame-pill offline';
+        }
+    }
+}
 
 // Navigation & Sub-views
 const dashboardView     = document.getElementById('dashboardView');
@@ -680,7 +696,7 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount, label) {
         }
 
         if (!resolved) {
-            showUpgradeMessage('Roblox server did not respond. Please make sure the Roblox game is running.', true);
+            showUpgradeMessage('Roblox server did not respond. You must be in the Roblox game to purchase upgrades.', true);
             fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`, { method: 'DELETE' }).catch(() => {});
         }
 
@@ -693,12 +709,21 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount, label) {
     }
 }
 
-// Real-time synchronization of stats with Firebase
+// Real-time synchronization of stats and live in-game status with Firebase
 async function syncStatsOnce(username) {
     if (!username) return;
     try {
-        const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
-        const data = await res.json();
+        const [statsRes, playerRes] = await Promise.all([
+            fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`),
+            fetch(`${FIREBASE_URL}/Players/${username}.json`)
+        ]);
+        const data = await statsRes.json();
+        const playerData = await playerRes.json();
+
+        if (playerData && typeof playerData === 'object') {
+            updateInGameUI(playerData.IsInGame === true);
+        }
+
         if (data && typeof data === 'object') {
             currentStats = {
                 Money: (data.Money !== undefined && !isNaN(Number(data.Money))) ? Number(data.Money) : 0,
