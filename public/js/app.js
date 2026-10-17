@@ -74,31 +74,55 @@ function showLoginView() {
     codeInput.focus();
 }
 
-async function resolveAvatarUrl(userId, username) {
-    // 1. Try reading from Firebase (persisted directly by Roblox Server)
-    try {
-        const fbRes = await fetch(`${FIREBASE_URL}/Players/${username}/AvatarUrl.json`);
-        const fbUrl = await fbRes.json();
-        if (fbUrl && typeof fbUrl === 'string' && fbUrl.startsWith('http')) {
-            return fbUrl;
+// Fetches the real Roblox avatar using UserId or Username via official Roblox API (roproxy)
+async function fetchRobloxAvatar(userId, username) {
+    // 1. Try directly by UserId via roproxy (CORS-enabled Roblox Thumbnails API)
+    if (userId) {
+        try {
+            const res = await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=false`);
+            const data = await res.json();
+            if (data && data.data && data.data[0] && data.data[0].imageUrl) {
+                return data.data[0].imageUrl;
+            }
+        } catch (e) {
+            console.warn('Roproxy thumbnails error by userId:', e);
         }
-    } catch (e) {
-        console.warn('Could not read avatar from Firebase:', e);
     }
 
-    // 2. Try fetching through CORS proxy
-    try {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=true`)}`;
-        const res = await fetch(proxyUrl);
-        const data = await res.json();
-        if (data && data.data && data.data[0] && data.data[0].imageUrl) {
-            return data.data[0].imageUrl;
+    // 2. Try by Username to resolve UserId, then fetch headshot
+    if (username) {
+        try {
+            const userRes = await fetch('https://users.roproxy.com/v1/usernames/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+            });
+            const userData = await userRes.json();
+            if (userData && userData.data && userData.data[0] && userData.data[0].id) {
+                const resolvedId = userData.data[0].id;
+                const thumbRes = await fetch(`https://thumbnails.roproxy.com/v1/users/avatar-headshot?userIds=${resolvedId}&size=150x150&format=Png&isCircular=false`);
+                const thumbData = await thumbRes.json();
+                if (thumbData && thumbData.data && thumbData.data[0] && thumbData.data[0].imageUrl) {
+                    return thumbData.data[0].imageUrl;
+                }
+            }
+        } catch (e) {
+            console.warn('Roproxy error by username:', e);
         }
-    } catch (e) {
-        console.warn('Could not fetch avatar via proxy:', e);
     }
 
-    // 3. Fallback to stylized SVG avatar with player's initials
+    // 3. Try Firebase (saved by Roblox server)
+    if (username) {
+        try {
+            const fbRes = await fetch(`${FIREBASE_URL}/Players/${username}/AvatarUrl.json`);
+            const fbUrl = await fbRes.json();
+            if (fbUrl && typeof fbUrl === 'string' && fbUrl.startsWith('http')) {
+                return fbUrl;
+            }
+        } catch (e) {}
+    }
+
+    // 4. Stylized SVG avatar fallback with initials
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'Player')}&background=d97736&color=ffffff&size=150&bold=true&rounded=true`;
 }
 
@@ -116,16 +140,19 @@ function showMainAppView(user) {
             this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || 'Player')}&background=d97736&color=ffffff&size=150&bold=true&rounded=true`;
         };
 
-        const isBroken = !user.avatarUrl || user.avatarUrl.includes('38c6edcb') || !user.avatarUrl.startsWith('http');
-        if (isBroken) {
-            resolveAvatarUrl(user.userId, user.username).then(freshUrl => {
-                user.avatarUrl = freshUrl;
-                saveSession(user);
-                userAvatar.src = freshUrl;
-            });
-        } else {
+        // If user already has a valid avatarUrl that is not broken, display it
+        if (user.avatarUrl && !user.avatarUrl.includes('38c6edcb') && user.avatarUrl.startsWith('http')) {
             userAvatar.src = user.avatarUrl;
         }
+
+        // Always query the live Roblox API by UserId or Username to get and refresh the official avatar!
+        fetchRobloxAvatar(user.userId, user.username).then(realUrl => {
+            if (realUrl) {
+                user.avatarUrl = realUrl;
+                saveSession(user);
+                userAvatar.src = realUrl;
+            }
+        });
     }
 }
 
@@ -284,7 +311,7 @@ function startPolling(userId, username) {
                 stopPolling();
 
                 // Resolve real avatar URL
-                const avatarUrl = await resolveAvatarUrl(userId, username);
+                const avatarUrl = await fetchRobloxAvatar(userId, username);
 
                 const userSession = {
                     userId: userId,
