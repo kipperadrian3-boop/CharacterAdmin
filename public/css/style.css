@@ -1,0 +1,358 @@
+/* ==========================================================================
+   CHARACTER ADMIN - STYLESHEET (Inspired by Build-Ur-Base-Web)
+   Warm beige, elegant typography, glass-card depth, orange accents
+   ========================================================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+    background-color: #fdfaf6;
+    color: #4a3b32;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    background-image: radial-gradient(#e6d5c3 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ==========================================================================
+   1. LOGIN SCREEN
+   ========================================================================== */
+
+.login-container {
+    background: #ffffff;
+    padding: 3rem 2.5rem;
+    border-radius: 20px;
+    box-shadow: 0 20px 45px -10px rgba(110, 83, 60, 0.14);
+    border: 1px solid #f0e6d8;
+    text-align: center;
+    width: 90%;
+    max-width: 460px;
+    animation: fadeIn 0.4s ease;
+}
+
+.logo h1 {
+    font-size: 2.1rem;
+    font-weight: 800;
+    color: #6b4c3a;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.logo p {
+    color: #8c7361;
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 2.2rem;
+    line-height: 1.4;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+input {
+    width: 100%;
+    padding: 1.05rem 1.2rem;
+    border: 2px solid #ecdccb;
+    border-radius: 12px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 2.5px;
+    color: #4a3b32;
+    background: #fffdfa;
+    transition: all 0.25s ease;
+    text-transform: lowercase;
+}
+
+input:focus {
+    outline: none;
+    border-color: #d97736;
+    box-shadow: 0 0 0 4px rgba(217, 119, 54, 0.15);
+    background: #ffffff;
+}
+
+input::placeholder {
+    color: #c2aea0;
+    letter-spacing: 1.5px;
+    font-weight: 500;
+}
+
+button {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(135deg, #e28743 0%, #c96525 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 20px -5px rgba(201, 101, 37, 0.35);
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 25px -5px rgba(201, 101, 37, 0.45);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+/* ==========================================================================
+   VERIFICATION PROMPT / STATUS
+   ========================================================================== */
+
+.status-container {
+    margin-top: 1.5rem;
+    padding: 1.2rem 1.4rem;
+    background: #fff8f0;
+    border: 1px solid #fed7aa;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.8rem;
+    animation: fadeIn 0.3s ease;
+}
+
+.spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid #fcd34d;
+    border-top: 3px solid #d97736;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
+}
+
+.status-message {
+    color: #9a3412;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.countdown-bar {
+    width: 100%;
+    height: 5px;
+    background: #ffedd5;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.countdown-progress {
+    width: 100%;
+    height: 100%;
+    background: #ea580c;
+    transition: width 1s linear;
+}
+
+.error-message {
+    margin-top: 1.2rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #dc2626;
+    background: #fef2f2;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 1px solid #fecaca;
+    animation: shake 0.3s ease;
+}
+
+/* ==========================================================================
+   2. MAIN APPLICATION (LOGGED IN VIEW)
+   ========================================================================== */
+
+.main-app {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.4s ease;
+}
+
+/* Top Navbar with Orange / Beige Header */
+.top-nav-bar {
+    width: 100%;
+    background: #ffffff;
+    border-bottom: 2px solid #f0e6d8;
+    padding: 1.1rem 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(110, 83, 60, 0.06);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-brand .brand-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #6b4c3a;
+    letter-spacing: -0.5px;
+}
+
+/* Profile Section on Top Right */
+.profile-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    background: #fdfaf6;
+    padding: 0.45rem 1rem 0.45rem 0.6rem;
+    border-radius: 99px;
+    border: 1px solid #ebd8c5;
+    box-shadow: 0 2px 8px rgba(110, 83, 60, 0.05);
+}
+
+.avatar-wrapper {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #f0e6d8;
+    border: 2px solid #d97736;
+    box-shadow: 0 2px 6px rgba(217, 119, 54, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.user-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #6b4c3a;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logout-btn {
+    background: transparent;
+    color: #a88269;
+    padding: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    box-shadow: none;
+    text-align: left;
+    width: auto;
+    border-radius: 0;
+}
+
+.logout-btn:hover {
+    color: #dc2626;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Content Container */
+.content-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem 1.5rem;
+}
+
+.coming-soon-card {
+    background: #ffffff;
+    padding: 4rem 3rem;
+    border-radius: 20px;
+    border: 1px solid #f0e6d8;
+    box-shadow: 0 20px 45px -10px rgba(110, 83, 60, 0.1);
+    text-align: center;
+    max-width: 540px;
+    width: 100%;
+}
+
+.coming-soon-badge {
+    display: inline-block;
+    padding: 0.4rem 1rem;
+    background: #ffedd5;
+    color: #c2410c;
+    border-radius: 99px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    margin-bottom: 1.4rem;
+}
+
+.coming-soon-card h2 {
+    font-size: 2.3rem;
+    font-weight: 800;
+    color: #6b4c3a;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.8rem;
+}
+
+.coming-soon-card p {
+    color: #8c7361;
+    font-size: 1.05rem;
+    line-height: 1.6;
+}
+
+.coming-soon-divider {
+    height: 1px;
+    background: #f0e6d8;
+    margin: 1.8rem auto;
+    width: 80px;
+}
+
+.coming-soon-sub {
+    font-size: 0.9rem !important;
+    color: #a89485 !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+@media (max-width: 600px) {
+    .top-nav-bar {
+        padding: 0.9rem 1.2rem;
+    }
+    .coming-soon-card {
+        padding: 2.5rem 1.8rem;
+    }
+}
