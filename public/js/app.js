@@ -125,13 +125,13 @@ loginBtn.addEventListener('click', handleConnect);
 async function handleConnect() {
     const raw = codeInput.value.trim();
     if (!raw) {
-        showError('Please enter your code from the game.');
+        showError('Please enter your code.');
         return;
     }
 
     const cleanCode = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (cleanCode.length < 8) {
-        showError('Invalid code. Please enter the full code shown in Roblox.');
+        showError('Invalid code format.');
         return;
     }
 
@@ -145,7 +145,7 @@ async function handleConnect() {
         const codeRecord = await codeRes.json();
 
         if (!codeRecord || !codeRecord.UserId) {
-            showError('Code not found. Make sure you are in the Roblox game!');
+            showError('Code not found.');
             codeInput.disabled = false;
             loginBtn.disabled = false;
             return;

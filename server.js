@@ -92,7 +92,7 @@ app.post('/api/auth/request-code', async (req, res) => {
         if (!codeRecord || !codeRecord.UserId) {
             return res.status(404).json({
                 success: false,
-                error: 'Code not found. Make sure you are in the Roblox game!'
+                error: 'Code not found.'
             });
         }
 
