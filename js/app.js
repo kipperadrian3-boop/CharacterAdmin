@@ -145,6 +145,54 @@ async function fetchRobloxAvatar(userId, username) {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'Player')}&background=d97736&color=ffffff&size=150&bold=true&rounded=true`;
 }
 
+async function resolveAndApplyUserLevel(user) {
+    if (!user || !user.username) return 0;
+    let level = Number(user.level || user.adminLevel || 0);
+
+    try {
+        // Query Firebase player profile to get live level
+        const res = await fetch(`${FIREBASE_URL}/Players/${user.username}.json`);
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+            const rawLevel = data.Level !== undefined ? data.Level : (data.AdminLevel !== undefined ? data.AdminLevel : (data.Stats && data.Stats.Level !== undefined ? data.Stats.Level : null));
+            if (rawLevel !== null && !isNaN(Number(rawLevel))) {
+                level = Number(rawLevel);
+            }
+        }
+
+        // Fallback to /config/admins if not set in player record
+        if (level === 0) {
+            const adminRes = await fetch(`${FIREBASE_URL}/config/admins/${user.username}.json`);
+            const adminVal = await adminRes.json();
+            if (typeof adminVal === 'number') {
+                level = adminVal;
+            }
+        }
+    } catch (e) {
+        console.warn('Could not fetch player level:', e);
+    }
+
+    user.level = level;
+    saveSession(user);
+
+    // Dashboard button is only visible if level is 50 or higher
+    const hasDashboardAccess = level >= 50;
+    if (navDashboardBtn) {
+        if (hasDashboardAccess) {
+            navDashboardBtn.classList.remove('hidden');
+        } else {
+            navDashboardBtn.classList.add('hidden');
+        }
+    }
+
+    // If level < 50, ensure user stays on upgrades view
+    if (!hasDashboardAccess) {
+        switchSubView('upgrades');
+    }
+
+    return level;
+}
+
 function showMainAppView(user) {
     stopPolling();
     loginView.classList.add('hidden');
@@ -174,8 +222,18 @@ function showMainAppView(user) {
             }
         });
 
-        // Initialize sub-view and start real-time stats synchronization with Firebase
-        switchSubView('dashboard');
+        // Initialize view based on stored level (if >= 50 show dashboard button, otherwise default to upgrades)
+        const initialLevel = Number(user.level || 0);
+        if (initialLevel >= 50) {
+            if (navDashboardBtn) navDashboardBtn.classList.remove('hidden');
+            switchSubView('dashboard');
+        } else {
+            if (navDashboardBtn) navDashboardBtn.classList.add('hidden');
+            switchSubView('upgrades');
+        }
+
+        // Resolve live level from Firebase and sync stats
+        resolveAndApplyUserLevel(user);
         startStatsSync(user.username);
     }
 }
@@ -574,8 +632,7 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount, label) {
         if (patchRes.ok) {
             currentStats[costCurrencyKey] = newMoney;
             currentStats[statKey] = newStatVal;
-
-            showUpgradeMessage(`${label || `+${displayAmount} ${type}`} successfully upgraded!`, false);
+            // Success message removed per user instruction ("dieses suchesfully upgraded mach das weg ist egal !")
         } else {
             showUpgradeMessage('Purchase failed. Could not communicate with server.', true);
         }
@@ -625,9 +682,15 @@ function stopStatsSync() {
     }
 }
 
-// Sub-view navigation
+// Sub-view navigation (Dashboard is restricted to level 50+)
 function switchSubView(viewName) {
     if (!dashboardView || !upgradesView) return;
+
+    const userLevel = Number(currentUser && (currentUser.level || currentUser.adminLevel) || 0);
+    if (viewName === 'dashboard' && userLevel < 50) {
+        viewName = 'upgrades';
+    }
+
     if (viewName === 'dashboard') {
         dashboardView.classList.remove('hidden');
         upgradesView.classList.add('hidden');
