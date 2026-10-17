@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Admin - Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- 1. LOGIN SCREEN -->
+    <div class="login-container" id="loginView">
+        <div class="logo">
+            <h1>Character Admin</h1>
+            <p>Enter your Web-Code from the Roblox game to log in.</p>
+        </div>
+        
+        <div class="input-group">
+            <input 
+                type="text" 
+                id="codeInput" 
+                placeholder="xxxx-xxxx-xxxx-xxxx" 
+                maxlength="19" 
+                autocomplete="off" 
+                spellcheck="false"
+            >
+            <button id="loginBtn">Connect</button>
+        </div>
+
+        <!-- Verification Status / Prompt -->
+        <div id="statusContainer" class="status-container hidden">
+            <div class="spinner"></div>
+            <p id="statusMessage" class="status-message">Pls Verify its you in the Game</p>
+            <div class="countdown-bar">
+                <div id="countdownProgress" class="countdown-progress"></div>
+            </div>
+        </div>
+
+        <p id="errorMessage" class="error-message hidden"></p>
+    </div>
+
+    <!-- 2. MAIN APP VIEW (Logged in) -->
+    <div id="mainAppView" class="main-app hidden">
+        <!-- Dashboard Top Header Bar -->
+        <header class="top-nav-bar">
+            <div class="nav-brand">
+                <span class="brand-title">Character Admin</span>
+            </div>
+
+            <!-- Profile on Top Right -->
+            <div class="profile-header-right">
+                <div class="avatar-wrapper">
+                    <img id="userAvatar" class="avatar-img" src="" alt="Avatar">
+                </div>
+                <div class="profile-meta">
+                    <span id="userName" class="user-name">Player</span>
+                    <button id="logoutBtn" class="logout-btn">Log Out</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="content-container">
+            <div class="coming-soon-card">
+                <div class="coming-soon-badge">DASHBOARD</div>
+                <h2>Coming Soon</h2>
+                <p>You are successfully authenticated with your Roblox game account.</p>
+                <div class="coming-soon-divider"></div>
+                <p class="coming-soon-sub">More character administration tools and controls will be available here soon.</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
