@@ -592,49 +592,96 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount, label) {
 
         const statKey = cfg.Stat || (type === 'Speed' ? 'Speed' : 'Strength');
         const costCurrencyKey = cfg.CostStat || 'Money';
-        const amountPerStep = Number(cfg.AmountPerStep) || 1;
 
-        // 1. Fetch fresh stats directly from Firebase to prevent client-side desync/cheats
-        const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
-        const latestStats = (await res.json()) || { Money: 100, Speed: 16, Strength: 1 };
+        // ── CHECK 1: Local Pre-Check ──
+        const localMoney = Number(currentStats[costCurrencyKey]) || 0;
+        const localStatVal = Number(currentStats[statKey]) || (Number(cfg.Default) || 0);
+        const estimatedCost = calculateUpgradeCost(cfg, localStatVal, countSteps);
 
-        const currentMoney = Number(latestStats[costCurrencyKey]) || 0;
-        const currentStatVal = Number(latestStats[statKey]) !== undefined && !isNaN(Number(latestStats[statKey]))
-            ? Number(latestStats[statKey])
-            : (Number(cfg.Default) || 0);
-
-        // 2. Re-calculate cost using authoritative latest numbers and Roblox config
-        const requiredCost = calculateUpgradeCost(cfg, currentStatVal, countSteps);
-
-        if (currentMoney < requiredCost) {
-            showUpgradeMessage(`Not enough ${costCurrencyKey}! Needed: ${requiredCost.toLocaleString()}, You have: ${currentMoney.toLocaleString()}`, true);
+        if (localMoney < estimatedCost) {
+            showUpgradeMessage(`Not enough ${costCurrencyKey}! Needed: ${estimatedCost.toLocaleString()}, You have: ${localMoney.toLocaleString()}`, true);
             isPurchasing = false;
-            currentStats = latestStats;
             updateUpgradeUI();
             return;
         }
 
-        // 3. Atomically update stats in Firebase
-        const newMoney = currentMoney - requiredCost;
-        const newStatVal = currentStatVal + (displayAmount || (countSteps * amountPerStep));
+        // ── CHECK 2: Fresh Database Pre-Check ──
+        const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
+        const latestStats = (await res.json()) || {};
+        const dbMoney = (latestStats[costCurrencyKey] !== undefined && !isNaN(Number(latestStats[costCurrencyKey])))
+            ? Number(latestStats[costCurrencyKey])
+            : localMoney;
+        const dbStatVal = (latestStats[statKey] !== undefined && !isNaN(Number(latestStats[statKey])))
+            ? Number(latestStats[statKey])
+            : localStatVal;
 
-        const patchPayload = {
-            [costCurrencyKey]: newMoney,
-            [statKey]: newStatVal
+        const dbRequiredCost = calculateUpgradeCost(cfg, dbStatVal, countSteps);
+        if (dbMoney < dbRequiredCost) {
+            showUpgradeMessage(`Not enough ${costCurrencyKey}! Needed: ${dbRequiredCost.toLocaleString()}, Database has: ${dbMoney.toLocaleString()}`, true);
+            currentStats[costCurrencyKey] = dbMoney;
+            currentStats[statKey] = dbStatVal;
+            isPurchasing = false;
+            updateUpgradeUI();
+            return;
+        }
+
+        // ── CHECK 3: Send to Roblox Server and wait for Authoritative Server Response! ──
+        const reqId = 'req_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+        const purchasePayload = {
+            RequestId: reqId,
+            Username: username,
+            UpgradeId: type,
+            Steps: countSteps,
+            Amount: displayAmount,
+            ExpectedCost: dbRequiredCost,
+            Status: 'Pending',
+            CreatedAt: Math.floor(Date.now() / 1000)
         };
 
-        const patchRes = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`, {
-            method: 'PATCH',
+        // Post purchase request to Firebase
+        await fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(patchPayload)
+            body: JSON.stringify(purchasePayload)
         });
 
-        if (patchRes.ok) {
-            currentStats[costCurrencyKey] = newMoney;
-            currentStats[statKey] = newStatVal;
-            // Success message removed per user instruction ("dieses suchesfully upgraded mach das weg ist egal !")
-        } else {
-            showUpgradeMessage('Purchase failed. Could not communicate with server.', true);
+        // Wait for Roblox Server response (poll every 500ms, timeout 12s)
+        let resolved = false;
+        let attempts = 0;
+        const maxAttempts = 24; // 12 seconds max
+
+        while (!resolved && attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 500));
+            attempts++;
+
+            try {
+                const checkRes = await fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`);
+                const result = await checkRes.json();
+
+                if (result && result.Status === 'Approved') {
+                    resolved = true;
+                    // Roblox server successfully executed and applied the upgrade!
+                    if (result.NewMoney !== undefined) currentStats[costCurrencyKey] = Number(result.NewMoney);
+                    if (result.NewStat !== undefined) currentStats[statKey] = Number(result.NewStat);
+
+                    // Clean up resolved purchase request
+                    fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`, { method: 'DELETE' }).catch(() => {});
+                    break;
+                } else if (result && result.Status === 'Rejected') {
+                    resolved = true;
+                    showUpgradeMessage(result.Reason || 'Purchase rejected by Roblox server.', true);
+                    syncStatsOnce(username);
+                    fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`, { method: 'DELETE' }).catch(() => {});
+                    break;
+                }
+            } catch (err) {
+                console.warn('Polling purchase status error:', err);
+            }
+        }
+
+        if (!resolved) {
+            showUpgradeMessage('Roblox server did not respond. Please make sure the Roblox game is running.', true);
+            fetch(`${FIREBASE_URL}/purchaseRequests/${reqId}.json`, { method: 'DELETE' }).catch(() => {});
         }
 
     } catch (e) {
@@ -654,9 +701,9 @@ async function syncStatsOnce(username) {
         const data = await res.json();
         if (data && typeof data === 'object') {
             currentStats = {
-                Money: Number(data.Money) || 0,
-                Speed: Number(data.Speed) || 16,
-                Strength: Number(data.Strength) || 1
+                Money: (data.Money !== undefined && !isNaN(Number(data.Money))) ? Number(data.Money) : 0,
+                Speed: (data.Speed !== undefined && !isNaN(Number(data.Speed))) ? Number(data.Speed) : 16,
+                Strength: (data.Strength !== undefined && !isNaN(Number(data.Strength))) ? Number(data.Strength) : 1
             };
             updateUpgradeUI();
         }
