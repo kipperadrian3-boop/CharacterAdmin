@@ -96,59 +96,9 @@
                 <!-- Status Feedback Message -->
                 <div id="upgradeStatusMsg" class="upgrade-status-msg hidden"></div>
 
-                <!-- Upgrades List (Stacked vertically, generic & clean without emojis) -->
-                <div class="upgrades-list">
-                    <!-- +1 Speed -->
-                    <div class="upgrade-card" data-upgrade="Speed" data-amount="1">
-                        <div class="upgrade-card-left">
-                            <span class="upgrade-type-tag">SPEED</span>
-                            <h3 class="upgrade-title">+1 Speed</h3>
-                            <p class="upgrade-preview" id="previewSpeed1">16 → 17</p>
-                        </div>
-                        <div class="upgrade-card-right">
-                            <span class="upgrade-cost-tag" id="costSpeed1">10 Money</span>
-                            <button class="upgrade-buy-btn" id="buySpeed1Btn">Buy</button>
-                        </div>
-                    </div>
-
-                    <!-- +5 Speed -->
-                    <div class="upgrade-card" data-upgrade="Speed" data-amount="5">
-                        <div class="upgrade-card-left">
-                            <span class="upgrade-type-tag">SPEED</span>
-                            <h3 class="upgrade-title">+5 Speed</h3>
-                            <p class="upgrade-preview" id="previewSpeed5">16 → 21</p>
-                        </div>
-                        <div class="upgrade-card-right">
-                            <span class="upgrade-cost-tag" id="costSpeed5">50 Money</span>
-                            <button class="upgrade-buy-btn" id="buySpeed5Btn">Buy</button>
-                        </div>
-                    </div>
-
-                    <!-- +5 Damage -->
-                    <div class="upgrade-card" data-upgrade="Damage" data-amount="1">
-                        <div class="upgrade-card-left">
-                            <span class="upgrade-type-tag">DAMAGE</span>
-                            <h3 class="upgrade-title">+5 Damage</h3>
-                            <p class="upgrade-preview" id="previewDamage5">1 → 6</p>
-                        </div>
-                        <div class="upgrade-card-right">
-                            <span class="upgrade-cost-tag" id="costDamage5">100 Money</span>
-                            <button class="upgrade-buy-btn" id="buyDamage5Btn">Buy</button>
-                        </div>
-                    </div>
-
-                    <!-- +50 Damage -->
-                    <div class="upgrade-card" data-upgrade="Damage" data-amount="10">
-                        <div class="upgrade-card-left">
-                            <span class="upgrade-type-tag">DAMAGE</span>
-                            <h3 class="upgrade-title">+50 Damage</h3>
-                            <p class="upgrade-preview" id="previewDamage50">1 → 51</p>
-                        </div>
-                        <div class="upgrade-card-right">
-                            <span class="upgrade-cost-tag" id="costDamage50">1000 Money</span>
-                            <button class="upgrade-buy-btn" id="buyDamage50Btn">Buy</button>
-                        </div>
-                    </div>
+                <!-- Upgrades List (Stacked vertically, generic & clean without emojis, dynamically loaded from Roblox UpgradeConfig) -->
+                <div class="upgrades-list" id="upgradesList">
+                    <div class="upgrade-loading">Loading upgrades from game config...</div>
                 </div>
             </div>
         </main>

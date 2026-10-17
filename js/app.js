@@ -28,21 +28,7 @@ const statMoneyVal      = document.getElementById('statMoneyVal');
 const statSpeedVal      = document.getElementById('statSpeedVal');
 const statDamageVal     = document.getElementById('statDamageVal');
 const upgradeStatusMsg  = document.getElementById('upgradeStatusMsg');
-
-const costSpeed1        = document.getElementById('costSpeed1');
-const costSpeed5        = document.getElementById('costSpeed5');
-const costDamage5       = document.getElementById('costDamage5');
-const costDamage50      = document.getElementById('costDamage50');
-
-const previewSpeed1     = document.getElementById('previewSpeed1');
-const previewSpeed5     = document.getElementById('previewSpeed5');
-const previewDamage5    = document.getElementById('previewDamage5');
-const previewDamage50   = document.getElementById('previewDamage50');
-
-const buySpeed1Btn      = document.getElementById('buySpeed1Btn');
-const buySpeed5Btn      = document.getElementById('buySpeed5Btn');
-const buyDamage5Btn     = document.getElementById('buyDamage5Btn');
-const buyDamage50Btn    = document.getElementById('buyDamage50Btn');
+const upgradesList      = document.getElementById('upgradesList');
 
 let pollInterval = null;
 let countdownTimer = null;
@@ -384,72 +370,59 @@ function stopPolling() {
 // ====================================================================
 
 logoutBtn.addEventListener('click', () => {
+    stopStatsSync();
     clearSession();
     showLoginView();
 });
 
 // ====================================================================
-// 6. UPGRADES SYSTEM & EXACT IN-GAME CALCULATOR
+// 6. UPGRADES SYSTEM - DYNAMICALLY SYNCED FROM UpgradeConfig.luau
 // ====================================================================
 
-const UPGRADE_CONFIG = {
-    Speed: {
-        stat: 'Speed',
-        baseCost: 10,
-        defaultVal: 16,
-        amountPerStep: 1,
-        growthTiers: [
-            { below: 20, percent: 5 },
-            { below: 30, percent: 10 },
-            { below: 40, percent: 15 },
-            { below: 50, percent: 20 },
-            { below: 60, percent: 25 },
-            { below: 70, percent: 30 },
-            { below: 80, percent: 32 },
-            { below: 90, percent: 35 },
-            { below: 100, percent: 37 },
-            { below: 115, percent: 40 },
-            { percent: 45 }
-        ]
-    },
-    Damage: {
-        stat: 'Strength',
-        baseCost: 100,
-        defaultVal: 1,
-        amountPerStep: 5,
-        growthTiers: [
-            { below: 100, percent: 10 },
-            { below: 250, percent: 15 },
-            { below: 500, percent: 20 },
-            { below: 1000, percent: 25 },
-            { below: 5000, percent: 30 },
-            { below: 50000, percent: 40 },
-            { percent: 50 }
-        ]
+let upgradeConfig = null;
+
+// Dynamically loads the game's exact UpgradeConfig from Firebase (Single Source of Truth!)
+async function loadUpgradeConfig() {
+    try {
+        const res = await fetch(`${FIREBASE_URL}/config/upgrades.json`);
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+            upgradeConfig = data;
+            updateUpgradeUI();
+        }
+    } catch (e) {
+        console.warn('Could not load remote upgrade config:', e);
     }
-};
+}
 
 function getGrowthPercent(cfg, statVal) {
+    const tiers = cfg.GrowthTiers || cfg.growthTiers || [];
     let last = 0;
-    for (const tier of cfg.growthTiers) {
-        last = tier.percent;
-        if (tier.below === undefined || statVal < tier.below) {
-            return tier.percent;
+    for (const tier of tiers) {
+        const percent = tier.Percent !== undefined ? tier.Percent : tier.percent;
+        const below = tier.Below !== undefined ? tier.Below : tier.below;
+        last = percent;
+        if (below === undefined || statVal < below) {
+            return percent;
         }
     }
     return last;
 }
 
-function calculateUpgradeCost(upgradeKey, currentStatValue, countSteps) {
-    const cfg = UPGRADE_CONFIG[upgradeKey];
-    const level = Math.max(0, Math.floor(((currentStatValue - cfg.defaultVal) / cfg.amountPerStep) + 0.5));
-    let price = cfg.baseCost;
+function calculateUpgradeCost(cfg, currentStatValue, countSteps) {
+    if (!cfg) return 0;
+    const defaultVal = Number(cfg.Default) || 0;
+    const amountPerStep = Number(cfg.AmountPerStep) || 1;
+    const baseCost = Number(cfg.BaseCost) || 10;
+
+    const level = Math.max(0, Math.floor(((currentStatValue - defaultVal) / amountPerStep) + 0.5));
+    let price = baseCost;
     let total = 0;
     for (let i = 0; i < level + countSteps; i++) {
         if (i >= level) {
             total += price;
         }
-        const statAtStep = cfg.defaultVal + i * cfg.amountPerStep;
+        const statAtStep = defaultVal + i * amountPerStep;
         price *= (1 + getGrowthPercent(cfg, statAtStep) / 100);
     }
     return Math.ceil(total);
@@ -467,29 +440,68 @@ function updateUpgradeUI() {
     statSpeedVal.textContent = speed.toLocaleString();
     statDamageVal.textContent = strength.toLocaleString();
 
-    // 2. Speed +1 (1 step of 1)
-    const costS1 = calculateUpgradeCost('Speed', speed, 1);
-    if (costSpeed1) costSpeed1.textContent = `${costS1.toLocaleString()} Money`;
-    if (previewSpeed1) previewSpeed1.textContent = `${speed} → ${speed + 1}`;
-    if (buySpeed1Btn) buySpeed1Btn.disabled = isPurchasing || (money < costS1);
+    if (!upgradesList) return;
 
-    // 3. Speed +5 (5 steps of 1)
-    const costS5 = calculateUpgradeCost('Speed', speed, 5);
-    if (costSpeed5) costSpeed5.textContent = `${costS5.toLocaleString()} Money`;
-    if (previewSpeed5) previewSpeed5.textContent = `${speed} → ${speed + 5}`;
-    if (buySpeed5Btn) buySpeed5Btn.disabled = isPurchasing || (money < costS5);
+    if (!upgradeConfig) {
+        upgradesList.innerHTML = '<div class="upgrade-loading">Loading upgrade configurations...</div>';
+        return;
+    }
 
-    // 4. Damage +5 (1 step of 5)
-    const costD5 = calculateUpgradeCost('Damage', strength, 1);
-    if (costDamage5) costDamage5.textContent = `${costD5.toLocaleString()} Money`;
-    if (previewDamage5) previewDamage5.textContent = `${strength} → ${strength + 5}`;
-    if (buyDamage5Btn) buyDamage5Btn.disabled = isPurchasing || (money < costD5);
+    // 2. Render cards dynamically directly from Roblox UpgradeConfig (Single Source of Truth)
+    let html = '';
+    for (const [upgradeName, cfg] of Object.entries(upgradeConfig)) {
+        const statKey = cfg.Stat || (upgradeName === 'Speed' ? 'Speed' : 'Strength');
+        const currentVal = Number(currentStats[statKey]) !== undefined && !isNaN(Number(currentStats[statKey]))
+            ? Number(currentStats[statKey])
+            : (Number(cfg.Default) || 0);
 
-    // 5. Damage +50 (10 steps of 5)
-    const costD50 = calculateUpgradeCost('Damage', strength, 10);
-    if (costDamage50) costDamage50.textContent = `${costD50.toLocaleString()} Money`;
-    if (previewDamage50) previewDamage50.textContent = `${strength} → ${strength + 50}`;
-    if (buyDamage50Btn) buyDamage50Btn.disabled = isPurchasing || (money < costD50);
+        const buttons = Array.isArray(cfg.Buttons) ? cfg.Buttons : Object.entries(cfg.Buttons || {}).map(([k, v]) => ({
+            Key: k,
+            Steps: typeof v === 'object' ? v.Steps : v,
+            Amount: typeof v === 'object' ? v.Amount : (v * (Number(cfg.AmountPerStep) || 1)),
+            Label: typeof v === 'object' ? v.Label : `+${v * (Number(cfg.AmountPerStep) || 1)} ${upgradeName}`
+        }));
+
+        for (const btn of buttons) {
+            const steps = Number(btn.Steps) || 1;
+            const amount = Number(btn.Amount) || (steps * (Number(cfg.AmountPerStep) || 1));
+            const cost = calculateUpgradeCost(cfg, currentVal, steps);
+            const nextVal = currentVal + amount;
+            const canAfford = money >= cost;
+            const isDisabled = isPurchasing || !canAfford;
+            const label = btn.Label || `+${amount} ${upgradeName}`;
+
+            html += `
+                <div class="upgrade-card" data-upgrade="${upgradeName}" data-steps="${steps}">
+                    <div class="upgrade-card-left">
+                        <span class="upgrade-type-tag">${upgradeName.toUpperCase()}</span>
+                        <h3 class="upgrade-title">${label}</h3>
+                        <p class="upgrade-preview">${currentVal.toLocaleString()} → ${nextVal.toLocaleString()}</p>
+                    </div>
+                    <div class="upgrade-card-right">
+                        <span class="upgrade-cost-tag">${cost.toLocaleString()} ${cfg.CostStat || 'Money'}</span>
+                        <button class="upgrade-buy-btn" data-upgrade="${upgradeName}" data-steps="${steps}" data-amount="${amount}" data-label="${label}" ${isDisabled ? 'disabled' : ''}>
+                            Buy
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    upgradesList.innerHTML = html;
+
+    // Attach click events
+    const buyBtns = upgradesList.querySelectorAll('.upgrade-buy-btn');
+    buyBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const upg = btn.getAttribute('data-upgrade');
+            const steps = parseInt(btn.getAttribute('data-steps'), 10);
+            const amount = parseInt(btn.getAttribute('data-amount'), 10);
+            const label = btn.getAttribute('data-label');
+            handlePurchaseUpgrade(upg, steps, amount, label);
+        });
+    });
 }
 
 function showUpgradeMessage(text, isError = false) {
@@ -503,9 +515,9 @@ function showUpgradeMessage(text, isError = false) {
     }, 4000);
 }
 
-// Exploit-safe purchase handler with anti-double-spend locks and server re-validation
-async function handlePurchaseUpgrade(type, countSteps, displayAmount) {
-    if (isPurchasing || !currentUser || !currentUser.username) {
+// Exploit-safe purchase handler using dynamic Roblox UpgradeConfig
+async function handlePurchaseUpgrade(type, countSteps, displayAmount, label) {
+    if (isPurchasing || !currentUser || !currentUser.username || !upgradeConfig) {
         return;
     }
 
@@ -514,19 +526,30 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount) {
 
     try {
         const username = currentUser.username;
+        const cfg = upgradeConfig[type];
+        if (!cfg) {
+            isPurchasing = false;
+            return;
+        }
+
+        const statKey = cfg.Stat || (type === 'Speed' ? 'Speed' : 'Strength');
+        const costCurrencyKey = cfg.CostStat || 'Money';
+        const amountPerStep = Number(cfg.AmountPerStep) || 1;
 
         // 1. Fetch fresh stats directly from Firebase to prevent client-side desync/cheats
         const res = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`);
         const latestStats = (await res.json()) || { Money: 100, Speed: 16, Strength: 1 };
 
-        const currentMoney = Number(latestStats.Money) || 0;
-        const currentStatVal = type === 'Speed' ? (Number(latestStats.Speed) || 16) : (Number(latestStats.Strength) || 1);
+        const currentMoney = Number(latestStats[costCurrencyKey]) || 0;
+        const currentStatVal = Number(latestStats[statKey]) !== undefined && !isNaN(Number(latestStats[statKey]))
+            ? Number(latestStats[statKey])
+            : (Number(cfg.Default) || 0);
 
-        // 2. Re-calculate cost using authoritative latest numbers
-        const requiredCost = calculateUpgradeCost(type, currentStatVal, countSteps);
+        // 2. Re-calculate cost using authoritative latest numbers and Roblox config
+        const requiredCost = calculateUpgradeCost(cfg, currentStatVal, countSteps);
 
         if (currentMoney < requiredCost) {
-            showUpgradeMessage(`Not enough Money! Needed: ${requiredCost.toLocaleString()}, You have: ${currentMoney.toLocaleString()}`, true);
+            showUpgradeMessage(`Not enough ${costCurrencyKey}! Needed: ${requiredCost.toLocaleString()}, You have: ${currentMoney.toLocaleString()}`, true);
             isPurchasing = false;
             currentStats = latestStats;
             updateUpgradeUI();
@@ -535,11 +558,11 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount) {
 
         // 3. Atomically update stats in Firebase
         const newMoney = currentMoney - requiredCost;
-        const newStatVal = type === 'Speed' ? (currentStatVal + countSteps * 1) : (currentStatVal + countSteps * 5);
+        const newStatVal = currentStatVal + (displayAmount || (countSteps * amountPerStep));
 
         const patchPayload = {
-            Money: newMoney,
-            [type === 'Speed' ? 'Speed' : 'Strength']: newStatVal
+            [costCurrencyKey]: newMoney,
+            [statKey]: newStatVal
         };
 
         const patchRes = await fetch(`${FIREBASE_URL}/Players/${username}/Stats.json`, {
@@ -549,11 +572,10 @@ async function handlePurchaseUpgrade(type, countSteps, displayAmount) {
         });
 
         if (patchRes.ok) {
-            currentStats.Money = newMoney;
-            if (type === 'Speed') currentStats.Speed = newStatVal;
-            if (type === 'Damage') currentStats.Strength = newStatVal;
+            currentStats[costCurrencyKey] = newMoney;
+            currentStats[statKey] = newStatVal;
 
-            showUpgradeMessage(`+${displayAmount} ${type} successfully upgraded!`, false);
+            showUpgradeMessage(`${label || `+${displayAmount} ${type}`} successfully upgraded!`, false);
         } else {
             showUpgradeMessage('Purchase failed. Could not communicate with server.', true);
         }
@@ -616,6 +638,7 @@ function switchSubView(viewName) {
         upgradesView.classList.remove('hidden');
         if (navDashboardBtn) navDashboardBtn.classList.remove('active');
         if (navUpgradesBtn) navUpgradesBtn.classList.add('active');
+        loadUpgradeConfig();
         updateUpgradeUI();
     }
 }
@@ -623,11 +646,6 @@ function switchSubView(viewName) {
 if (navDashboardBtn) navDashboardBtn.addEventListener('click', () => switchSubView('dashboard'));
 if (navUpgradesBtn) navUpgradesBtn.addEventListener('click', () => switchSubView('upgrades'));
 
-// Hook upgrade buttons
-if (buySpeed1Btn) buySpeed1Btn.addEventListener('click', () => handlePurchaseUpgrade('Speed', 1, 1));
-if (buySpeed5Btn) buySpeed5Btn.addEventListener('click', () => handlePurchaseUpgrade('Speed', 5, 5));
-if (buyDamage5Btn) buyDamage5Btn.addEventListener('click', () => handlePurchaseUpgrade('Damage', 1, 5));
-if (buyDamage50Btn) buyDamage50Btn.addEventListener('click', () => handlePurchaseUpgrade('Damage', 10, 50));
-
 // Run session check on page load
 initSession();
+loadUpgradeConfig();
